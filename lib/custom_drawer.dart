@@ -1,10 +1,11 @@
-import 'dart:math';
+import 'dart:developer' as dev;
 import 'dart:ui';
-
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
-import 'package:qrcode_flutter/qrview.dart';
+import 'package:qrcode_flutter/scan/nfcview.dart';
+import 'package:qrcode_flutter/scan/qrview.dart';
 
 class Drawer3D extends StatefulWidget {
   @override
@@ -13,6 +14,9 @@ class Drawer3D extends StatefulWidget {
 
 class _Drawer3DState extends State<Drawer3D>
     with SingleTickerProviderStateMixin {
+  ValueNotifier<dynamic> currentScanner = ValueNotifier("QRViewExample");
+  Widget currentScannerWidget = QRViewExample();
+
   var _maxSlide = 0.75;
   var _extraHeight = 0.1;
   late double _startingPos;
@@ -25,6 +29,7 @@ class _Drawer3DState extends State<Drawer3D>
   @override
   void initState() {
     super.initState();
+
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 800),
@@ -62,10 +67,8 @@ class _Drawer3DState extends State<Drawer3D>
             //Space color - it also makes the empty space touchable
             Container(color: Color(0xFFaaa598)),
             _buildBackground(),
-            //_build3dObject(),
             _buildDrawer(),
             _buildHeader(),
-            //_buildOverlay(),
           ],
         ),
       ),
@@ -120,22 +123,42 @@ class _Drawer3DState extends State<Drawer3D>
       _animationController.reverse();
   }
 
-  _buildMenuItem(String s, {bool active = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: InkWell(
-        onTap: () {},
-        child: Text(
-          s.toUpperCase(),
-          style: TextStyle(
-            fontSize: 25,
-            color: active ? Color(0xffbb0000) : null,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
-    );
-  }
+  _buildMenuItem(String s) => ValueListenableBuilder(
+        valueListenable: currentScanner,
+        builder: (BuildContext context, dynamic v, Widget? child) {
+          bool active = false;
+          if (currentScanner.value.toString() == "QRViewExample" &&
+              s == "QR Code") {
+            active = true;
+          } else if (currentScanner.value.toString() == "NFCViewExample" &&
+              s == "NFC") {
+            active = true;
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: InkWell(
+              onTap: () {
+                currentScannerWidget = currentScanner.value == "QRViewExample"
+                    ? NFCViewExample()
+                    : QRViewExample();
+                currentScanner.value = currentScanner.value == "QRViewExample"
+                    ? "NFCViewExample"
+                    : "QRViewExample";
+                dev.log("Bon c'est pas trop mal normalement");
+                currentScanner.notifyListeners();
+              },
+              child: Text(
+                s.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 25,
+                  color: active ? Color(0xffbb0000) : null,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          );
+        },
+      );
 
   _buildFooterMenuItem(String s) {
     return Padding(
@@ -153,48 +176,59 @@ class _Drawer3DState extends State<Drawer3D>
     );
   }
 
-  _buildBackground() => Positioned.fill(
-        top: -_extraHeight,
-        bottom: -_extraHeight,
-        child: AnimatedBuilder(
-          animation: _animator,
-          builder: (context, widget) => Transform.translate(
-            offset: Offset(_maxSlide * _animator.value, 0),
-            child: Transform(
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.001)
-                ..rotateY((pi / 2 + 0.1) * -_animator.value),
-              alignment: Alignment.centerLeft,
-              child: widget,
-            ),
-          ),
-          child: Container(
-            color: const Color(0xffe8dfce),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                //Fender word
-                Positioned(
-                    top: _extraHeight + 0.1 * _screen.height,
-                    left: 0,
-                    child: Container(
-                      height: _screen.height - _extraHeight,
-                      width: _screen.width,
-                      child: QRViewExample(scanArea: 100.0),
-                    )),
-
-                AnimatedBuilder(
-                  animation: _animator,
-                  builder: (_, __) => Container(
-                    color: Colors.black.withAlpha(
-                      (150 * _animator.value).floor(),
-                    ),
-                  ),
+  _buildBackground() => ValueListenableBuilder(
+        builder: (BuildContext context, dynamic v, Widget? child) {
+          // This builder will only get called when the currentScanner
+          // is updated.
+          return Positioned.fill(
+            top: -_extraHeight,
+            bottom: -_extraHeight,
+            child: AnimatedBuilder(
+              animation: _animator,
+              builder: (context, widget) => Transform.translate(
+                offset: Offset(_maxSlide * _animator.value, 0),
+                child: Transform(
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.001)
+                    ..rotateY((pi / 2 + 0.1) * -_animator.value),
+                  alignment: Alignment.centerLeft,
+                  child: widget,
                 ),
-              ],
+              ),
+              child: Container(
+                color: const Color(0xffe8dfce),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    //Fender word
+                    Positioned(
+                        top: _extraHeight + 0.1 * _screen.height,
+                        left: 0,
+                        child: Container(
+                          height: _screen.height - _extraHeight,
+                          width: _screen.width,
+                          child: currentScannerWidget,
+                        )),
+
+                    AnimatedBuilder(
+                      animation: _animator,
+                      builder: (_, __) => Container(
+                        color: Colors.black.withAlpha(
+                          (150 * _animator.value).floor(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
+        valueListenable: currentScanner,
+        // The child parameter is most helpful if the child is
+        // expensive to build and does not depend on the value from
+        // the notifier.
+        child: currentScannerWidget,
       );
 
   _buildDrawer() => Positioned.fill(
@@ -234,6 +268,15 @@ class _Drawer3DState extends State<Drawer3D>
                     ),
                   ),
                 ),
+                AnimatedBuilder(
+                  animation: _animator,
+                  builder: (_, __) => Container(
+                    width: _maxSlide,
+                    color: Colors.black.withAlpha(
+                      (150 * (1 - _animator.value)).floor(),
+                    ),
+                  ),
+                ),
                 Positioned.fill(
                   top: _extraHeight,
                   bottom: _extraHeight,
@@ -250,7 +293,6 @@ class _Drawer3DState extends State<Drawer3D>
                               "Watteco",
                               style: TextStyle(
                                 fontSize: 24,
-                                backgroundColor: Color(0xffe8dfce),
                                 fontWeight: FontWeight.w900,
                                 fontStyle: FontStyle.italic,
                               ),
@@ -258,7 +300,8 @@ class _Drawer3DState extends State<Drawer3D>
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                _buildMenuItem("Scanner", active: true),
+                                _buildMenuItem("QR Code"),
+                                _buildMenuItem("NFC"),
                                 _buildMenuItem("Support"),
                                 _buildMenuItem("Configurator"),
                               ],
@@ -267,23 +310,12 @@ class _Drawer3DState extends State<Drawer3D>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 _buildFooterMenuItem("About"),
-                                _buildFooterMenuItem("Support"),
                                 _buildFooterMenuItem("Terms"),
-                                _buildFooterMenuItem("Faqs"),
                               ],
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                AnimatedBuilder(
-                  animation: _animator,
-                  builder: (_, __) => Container(
-                    width: _maxSlide,
-                    color: Colors.black.withAlpha(
-                      (150 * (1 - _animator.value)).floor(),
                     ),
                   ),
                 ),
@@ -313,7 +345,7 @@ class _Drawer3DState extends State<Drawer3D>
                     Opacity(
                       opacity: 1 - _animator.value,
                       child: const Text(
-                        "QR CODE SCANNER",
+                        "Inf'O",
                         style: TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),

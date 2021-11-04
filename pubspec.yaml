@@ -32,6 +32,7 @@ dependencies:
   qr_code_scanner: ^0.5.2
   url_launcher: ^6.0.12
   http: ^0.13.4
+  nfc_manager: ^3.1.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
